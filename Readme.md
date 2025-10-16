@@ -1,3 +1,59 @@
+Step 2: Prepare the EC2 Instance for AWS CodeDeploy
+This document explains the detailed options and steps for preparing an EC2 instance to be used with AWS CodeDeploy to deploy a Flask application.
+1. Launch the EC2 instance
+- Go to the EC2 console and launch an instance.
+- Choose Amazon Linux 2023 AMI.
+- Select instance type (e.g., t2.micro for testing).
+- Create or use an existing key pair for SSH access.
+- In the security group, allow:
+  * Port 22 (SSH) from your IP.
+  * Port 8000 (Flask app) or port 80 if using a reverse proxy or ALB.
+2. Attach IAM Role (Instance Profile)
+The EC2 instance must have an IAM role attached to allow CodeDeploy to work properly:
+- Create an IAM role with trusted entity set to EC2.
+- Attach at least these policies:
+  * AmazonS3ReadOnlyAccess (to fetch deployment bundles from S3).
+  * AmazonSSMManagedInstanceCore (optional, if you want to use Systems Manager Session Manager).
+- Attach this IAM role to the EC2 instance.
+3. Install CodeDeploy Agent
+The CodeDeploy agent must be running on the EC2 instance:
+- SSH into the instance.
+- Update packages and install dependencies:
+  sudo dnf update -y
+  sudo dnf install -y ruby wget
+
+- Install the CodeDeploy agent (replace <region> with your AWS region):
+  curl -o codedeploy-agent.rpm https://aws-codedeploy-<region>.s3.<region>.amazonaws.com/latest/codedeploy-agent.noarch.rpm
+  sudo dnf install -y ./codedeploy-agent.rpm
+
+- Enable and start the agent:
+  sudo systemctl enable --now codedeploy-agent
+  systemctl status codedeploy-agent
+
+The status should show active (running).
+4. (Optional) Install SSM Agent
+Amazon Linux 2023 includes the SSM agent by default. Ensure the IAM role has the AmazonSSMManagedInstanceCore policy attached to allow remote management via Systems Manager.
+5. Tag the Instance
+CodeDeploy identifies EC2 instances by tags. In the EC2 console, add a tag such as:
+- Key: CodeDeploy
+- Value: FlaskDemo
+
+When creating a CodeDeploy Deployment Group, use this tag to target the instance.
+6. Verification Commands
+To verify the setup, run the following commands on the EC2 instance:
+- Check agent service status:
+  systemctl status codedeploy-agent
+
+- Ensure it starts on boot:
+  sudo systemctl enable codedeploy-agent
+
+- Check installed package/version:
+  rpm -q codedeploy-agent
+
+- Tail the CodeDeploy agent log:
+  sudo tail -n 50 /var/log/aws/codedeploy-agent/codedeploy-agent.log
+
+
 Step 3: Create AWS CodeDeploy Resources
 This document explains all the detailed steps required to create AWS CodeDeploy resources to deploy a Flask application on EC2 instances.
 A. Create the CodeDeploy Service Role (IAM)
